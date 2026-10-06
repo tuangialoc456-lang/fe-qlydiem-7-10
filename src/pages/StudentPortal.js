@@ -129,7 +129,7 @@ export default function StudentPortal() {
           <Loading />
         ) : (
           <>
-            {/* NOỊ DUNG TAB 1: ĐĂNG KÝ MÔN HỌC */}
+            {/* NỘI DUNG TAB 1: ĐĂNG KÝ MÔN HỌC */}
             {activeTab === 'DANG_KY' && (
               <div>
                 <h3>Danh sách Lớp Học Phần Mở Đăng Ký</h3>
@@ -217,10 +217,13 @@ export default function StudentPortal() {
                         const cc = item.diemChuyenCan ?? 0;
                         const gk = item.diemGiuaKy ?? 0;
                         const ck = item.diemCuoiKy ?? 0;
-                        const tongKet = (cc * 0.2 + gk * 0.3 + ck * 0.5).toFixed(1);
+                        const tongKet = item.diemTongKet ? item.diemTongKet.toFixed(1) : (cc * 0.2 + gk * 0.3 + ck * 0.5).toFixed(1);
 
                         return (
-                          <tr key={item.id || index}>
+                          <tr 
+                            key={item.id || index}
+                            style={item.daBiSuaTraiPhep ? { backgroundColor: '#fff0f0' } : {}}
+                          >
                             <td>{index + 1}</td>
                             <td><strong>{item.lopHocPhan?.maLop || '-'}</strong></td>
                             <td>{item.lopHocPhan?.monHoc?.tenMonHoc || '-'}</td>
@@ -228,13 +231,24 @@ export default function StudentPortal() {
                             <td>{item.diemGiuaKy ?? '-'}</td>
                             <td>{item.diemCuoiKy ?? '-'}</td>
                             <td>
-                              <strong style={{ color: tongKet >= 4.0 ? '#2e7d32' : '#c62828' }}>
+                              <strong style={{ color: item.daBiSuaTraiPhep ? '#c62828' : (tongKet >= 4.0 ? '#2e7d32' : '#c62828') }}>
                                 {tongKet}
                               </strong>
                             </td>
                             <td>
-                              {item.daKy ? (
-                                <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>🔒 Đã chốt & ký</span>
+                              {item.daBiSuaTraiPhep ? (
+                                <div style={{ color: '#d32f2f', fontWeight: 'bold' }}>
+                                  {item.canhBao || '⚠️ Điểm không hợp lệ, phát hiện sửa điểm trái phép!'}
+                                </div>
+                              ) : item.daKy ? (
+                                <div>
+                                  <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>🔒 Đã chốt & ký</span>
+                                  {item.thongBaoKhoiPhuc && (
+                                    <div style={{ color: '#1b5e20', fontSize: '11px', marginTop: '2px', fontWeight: 'bold' }}>
+                                      {item.thongBaoKhoiPhuc}
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <span style={{ color: '#e65100' }}>⏳ Chưa chốt</span>
                               )}

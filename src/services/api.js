@@ -4,7 +4,7 @@ const API = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000/api',
 });
 
-// Tự động gắn Token vào Header nếu đã đăng nhập
+// Tự động gắn Token JWT vào Header nếu đã đăng nhập
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -27,7 +27,6 @@ export const userAPI = {
   update: (id, data) => API.put(`/nguoi-dung/${id}`, data),
   delete: (id) => API.delete(`/nguoi-dung/${id}`),
   
-  // Alias tiếng Việt
   danhSach: () => API.get('/nguoi-dung'),
   chiTiet: (id) => API.get(`/nguoi-dung/${id}`),
   taoNguoiDung: (data) => API.post('/nguoi-dung', data),
@@ -42,7 +41,6 @@ export const subjectAPI = {
   update: (id, data) => API.put(`/mon-hoc/${id}`, data),
   delete: (id) => API.delete(`/mon-hoc/${id}`),
 
-  // Alias tiếng Việt
   danhSach: () => API.get('/mon-hoc'),
   chiTiet: (id) => API.get(`/mon-hoc/${id}`),
   taoMonHoc: (data) => API.post('/mon-hoc', data),
@@ -57,7 +55,6 @@ export const classAPI = {
   update: (id, data) => API.put(`/lop-hoc-phan/${id}`, data),
   delete: (id) => API.delete(`/lop-hoc-phan/${id}`),
 
-  // Alias tiếng Việt
   danhSach: () => API.get('/lop-hoc-phan'),
   chiTiet: (id) => API.get(`/lop-hoc-phan/${id}`),
   taoLop: (data) => API.post('/lop-hoc-phan', data),
@@ -71,13 +68,21 @@ export const gradeAPI = {
   save: (data) => API.post('/diem', data),
   update: (id, data) => API.put(`/diem/${id}`, data),
 
-  // Alias tiếng Việt đồng bộ với GradeManagement.js
   danhSachLop: () => API.get('/lop-hoc-phan'),
   layTheoLop: (classId) => API.get(`/diem/lop/${classId}`),
   diemTheoLop: (classId) => API.get(`/diem/lop/${classId}`),
   luuDiem: (data) => API.post('/diem', data),
   capNhatDiem: (id, data) => API.put(`/diem/${id}`, data),
-  chotKyLop: (classId) => API.post(`/diem/lop/${classId}/chot-ky`),
+  chotKyLop: (classId, data) => API.post(`/diem/lop/${classId}/chot-ky`, data),
+
+  taoToken: () => API.post('/diem/tao-token'),
+  xacThucToken: (data) => API.post('/diem/xac-thuc-token', data),
+};
+
+// BỔ SUNG: Khai báo API Token xác thực OTP
+export const tokenAPI = {
+  requestOtp: () => API.post('/token/request-otp'),
+  verifyOtpAndGenerate: (otp) => API.post('/token/verify-otp-and-generate', { otp }, { responseType: 'blob' }),
 };
 
 export const transcriptAPI = {
@@ -85,7 +90,6 @@ export const transcriptAPI = {
   getTranscript: (studentId) => API.get(studentId ? `/bang-diem/${studentId}` : '/diem/me'),
 };
 
-// ĐÃ BỔ SUNG: API Đăng ký học phần cho Sinh viên
 export const registrationAPI = {
   danhSachLopMo: () => API.get('/dang-ky-hoc/lop-mo'),
   dangKy: (classId) => API.post(`/dang-ky-hoc/${classId}`),

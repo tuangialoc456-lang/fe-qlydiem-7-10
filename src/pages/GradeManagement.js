@@ -3,6 +3,7 @@ import { classAPI, gradeAPI } from '../services/api';
 import { AuthContext } from '../contexts/AuthContext';
 import Alert from '../components/Alert';
 import Loading from '../components/Loading';
+import OtpModal from '../components/OtpModal';
 
 export default function GradeManagement() {
   const { user } = useContext(AuthContext);
@@ -14,6 +15,15 @@ export default function GradeManagement() {
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({});
 
+  // State Token cho Giảng viên
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [inputToken, setInputToken] = useState('');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  // Kiểm tra vai trò người dùng
+  const isAdmin = user?.vaiTro === 'ADMIN';
+  const isGiangVien = user?.vaiTro === 'GIANG_VIEN';
+
   useEffect(() => {
     loadClasses();
   }, []);
@@ -21,7 +31,7 @@ export default function GradeManagement() {
   const loadClasses = async () => {
     try {
       const res = await classAPI.danhSach();
-      setClasses(res.data);
+      setClasses(res.data || []);
     } catch (err) {
       setAlert({ 
         type: 'error', 
@@ -42,7 +52,7 @@ export default function GradeManagement() {
     try {
       setSelectedClass(classId);
       const res = await gradeAPI.diemTheoLop(classId);
-      setGrades(res.data);
+      setGrades(res.data || []);
     } catch (err) {
       setGrades([]);
       setAlert({ 
@@ -76,10 +86,9 @@ export default function GradeManagement() {
       setAlert({ type: 'success', message: 'Cập nhật điểm thành công' });
       setEditingId(null);
       
-      // Tải lại dữ liệu trực tiếp, không làm nháy lại state chọn lớp
       if (selectedClass) {
         const res = await gradeAPI.diemTheoLop(selectedClass);
-        setGrades(res.data);
+        setGrades(res.data || []);
       }
     } catch (err) {
       setAlert({ 
@@ -89,82 +98,136 @@ export default function GradeManagement() {
     }
   };
 
-  const handleChotKyLop = async () => {
-    if (!window.confirm('Chốt điểm sẽ khóa bảng điểm và ký số tất cả sinh viên. Bạn chắc chắn?')) return;
-    try {
-      await gradeAPI.chotKyLop(selectedClass);
-      setAlert({ type: 'success', message: 'Chốt điểm và ký số thành công!' });
-      setSelectedClass(null);
-      setGrades([]);
-      loadClasses();
-    } catch (err) {
-      setAlert({ 
-        type: 'error', 
-        message: err.response?.data?.message || 'Lỗi chốt điểm' 
-      });
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setInputToken(event.target.result.trim());
+      };
+      reader.readAsText(file);
     }
+  };
+
+  const handleUnlockTable = () => {
+    if (!inputToken) {
+      setAlert({ type: 'warning', message: 'Vui lòng nhập mã Token hoặc nạp file .key!' });
+      return;
+    }
+    setIsUnlocked(true);
+    setAlert({ type: 'success', message: 'Mở khóa bảng điểm thành công!' });
   };
 
   if (loading) return <Loading />;
 
-  const selectedClassData = classes.find(c => c.id === selectedClass);
+  const selectedClassData = classes.find(c => String(c.id) === String(selectedClass));
 
   return (
     <div className="main-content">
       <div className="card">
-        <h2>📊 Quản lý Điểm</h2>
+        <h2>{isAdmin ? '📊 Xem & Quản lý Bảng điểm Sinh viên' : '✏️ Nhập & Chốt điểm Lớp học phần'}</h2>
         {alert && <Alert type={alert.type} message={alert.message} onClose={() => setAlert(null)} />}
 
-        <div className="form-group">
-          <label>Chọn lớp học phần:</label>
+        {/* CHỈ HIỂN THỊ KHUNG TOKEN KHI LÀ GIẢNG VIÊN */}
+        {isGiangVien && (
+          <div style={{
+            background: '#fffbe6',
+            border: '1px solid #ffe58f',
+            padding: '16px',
+            borderRadius: '8px',
+            marginBottom: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h4 style={{ margin: 0, color: '#d46b08' }}>🔑 Token Bảo mật Nhập điểm Cá nhân</h4>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => setIsOtpModalOpen(true)}
+                style={{ backgroundColor: '#1677ff', borderColor: '#1677ff' }}
+              >
+                🔑 Cấp mới & Tải File Token (.key)
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Nhập mã Token..."
+                value={inputToken}
+                onChange={(e) => setInputToken(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #d9d9d9', minWidth: '220px' }}
+              />
+              <span>Hoặc nạp file:</span>
+              <input type="file" accept=".key" onChange={handleFileUpload} />
+              <button className="btn btn-success" onClick={handleUnlockTable}>
+                Mở khóa Bảng điểm
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SELECT CHỌN LỚP HỌC PHẦN */}
+        <div className="form-group" style={{ marginBottom: '20px' }}>
+          <label style={{ fontWeight: 'bold' }}>Chọn lớp giảng dạy / quản lý:</label>
           <select 
             value={selectedClass || ''} 
             onChange={(e) => {
               const val = e.target.value ? parseInt(e.target.value, 10) : null;
               handleSelectClass(val);
             }}
+            style={{ width: '100%', padding: '8px' }}
           >
             <option value="">-- Chọn lớp --</option>
             {classes.map(cls => (
               <option key={cls.id} value={cls.id}>
-                {cls.maLop} - {cls.monHoc?.tenMonHoc} - {cls.hocKy} ({cls.namHoc}) {cls.daChot ? '🔒' : ''}
+                {cls.maLop} - {cls.monHoc?.tenMonHoc || 'Môn học'} - HK{cls.hocKy} ({cls.namHoc}) {cls.daChot ? '🔒' : ''}
               </option>
             ))}
           </select>
         </div>
 
         {selectedClassData && (
-          <div style={{ marginBottom: '20px', padding: '15px', background: '#f0f0f0', borderRadius: '4px' }}>
-            <p><strong>Lớp:</strong> {selectedClassData.maLop}</p>
-            <p><strong>Giảng viên:</strong> {selectedClassData.giangVien?.hoTen}</p>
-            <p><strong>Trạng thái:</strong> {selectedClassData.daChot ? '🔒 Đã chốt' : '✓ Mở'}</p>
-            {user?.vaiTro === 'ADMIN' && !selectedClassData.daChot && (
-              <button className="btn btn-success" onClick={handleChotKyLop} style={{ marginTop: '10px' }}>
-                🔒 Chốt & Ký số Bảng điểm
-              </button>
-            )}
+          <div style={{ marginBottom: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+            <p style={{ margin: '4px 0' }}><strong>Lớp:</strong> {selectedClassData.maLop}</p>
+            <p style={{ margin: '4px 0' }}><strong>Giảng viên phụ trách:</strong> {selectedClassData.giangVien?.hoTen || 'Chưa phân công'}</p>
+            <p style={{ margin: '4px 0' }}><strong>Trạng thái bảng điểm:</strong> {selectedClassData.daChot ? '🔒 Đã chốt & Ký số' : '📝 Đang mở nhập điểm'}</p>
           </div>
         )}
 
-        {grades.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th>Sinh viên</th>
-                <th>Chuyên cần</th>
-                <th>Giữa kỳ</th>
-                <th>Cuối kỳ</th>
-                <th>Tổng kết</th>
-                <th>Xếp loại</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grades.map(grade => (
-                <tr key={grade.id}>
-                  <td>{grade.sinhVien?.hoTen}</td>
+      {grades.length > 0 && (
+  <table>
+    <thead>
+      <tr>
+        <th>STT</th>
+        <th>Mã SV</th>
+        <th>Họ và Tên</th>
+        <th>Chuyên cần</th>
+        <th>Giữa kỳ</th>
+        <th>Cuối kỳ</th>
+        <th>Tổng kết</th>
+        <th>Xếp loại</th>
+        <th>Trạng thái</th>
+        {isGiangVien && <th>Thao tác</th>}
+      </tr>
+    </thead>
+    <tbody>
+      {grades.map((grade, index) => (
+        <tr 
+          key={grade.id} 
+          style={grade.daBiSuaTraiPhep ? { backgroundColor: '#fff0f0' } : {}}
+        >
+          <td>{index + 1}</td>
+          {/* LẤY DỮ LIỆU TỪ CỘT maSo TRONG DATABASE */}
+          <td><strong>{grade.sinhVien?.maSo || grade.sinhVien?.maSinhVien || '-'}</strong></td>
+          <td>
+            {grade.sinhVien?.hoTen || '-'}
+            {grade.daBiSuaTraiPhep && (
+              <div style={{ color: '#d9534f', fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}>
+                ⚠ {grade.canhBao || 'Dữ liệu bị sửa trái phép!'}
+              </div>
+            )}
+          </td>
                   <td>
-                    {editingId === grade.id ? (
+                    {isGiangVien && editingId === grade.id ? (
                       <input
                         type="number"
                         min="0"
@@ -172,13 +235,14 @@ export default function GradeManagement() {
                         step="0.5"
                         value={editValues.diemChuyenCan === null ? '' : editValues.diemChuyenCan}
                         onChange={(e) => handleEditChange('diemChuyenCan', e.target.value)}
+                        style={{ width: '65px' }}
                       />
                     ) : (
-                      grade.diemChuyenCan?.toFixed(2) || '-'
+                      grade.diemChuyenCan !== null && grade.diemChuyenCan !== undefined ? Number(grade.diemChuyenCan).toFixed(2) : '-'
                     )}
                   </td>
                   <td>
-                    {editingId === grade.id ? (
+                    {isGiangVien && editingId === grade.id ? (
                       <input
                         type="number"
                         min="0"
@@ -186,13 +250,14 @@ export default function GradeManagement() {
                         step="0.5"
                         value={editValues.diemGiuaKy === null ? '' : editValues.diemGiuaKy}
                         onChange={(e) => handleEditChange('diemGiuaKy', e.target.value)}
+                        style={{ width: '65px' }}
                       />
                     ) : (
-                      grade.diemGiuaKy?.toFixed(2) || '-'
+                      grade.diemGiuaKy !== null && grade.diemGiuaKy !== undefined ? Number(grade.diemGiuaKy).toFixed(2) : '-'
                     )}
                   </td>
                   <td>
-                    {editingId === grade.id ? (
+                    {isGiangVien && editingId === grade.id ? (
                       <input
                         type="number"
                         min="0"
@@ -200,29 +265,39 @@ export default function GradeManagement() {
                         step="0.5"
                         value={editValues.diemCuoiKy === null ? '' : editValues.diemCuoiKy}
                         onChange={(e) => handleEditChange('diemCuoiKy', e.target.value)}
+                        style={{ width: '65px' }}
                       />
                     ) : (
-                      grade.diemCuoiKy?.toFixed(2) || '-'
+                      grade.diemCuoiKy !== null && grade.diemCuoiKy !== undefined ? Number(grade.diemCuoiKy).toFixed(2) : '-'
                     )}
                   </td>
-                  <td><strong>{grade.diemTongKet?.toFixed(2) || '-'}</strong></td>
+                  <td><strong>{grade.diemTongKet !== null && grade.diemTongKet !== undefined ? Number(grade.diemTongKet).toFixed(2) : '-'}</strong></td>
                   <td>{grade.xepLoai || '-'}</td>
                   <td>
-                    {editingId === grade.id ? (
-                      <div className="table-actions">
-                        <button className="edit-btn" onClick={() => handleSaveDiem(grade.id)}>Lưu</button>
-                        <button className="delete-btn" onClick={() => setEditingId(null)}>Hủy</button>
-                      </div>
+                    {grade.daKy || selectedClassData?.daChot ? (
+                      <span style={{ color: '#2e7d32', fontWeight: 'bold' }}>🔒 Đã chốt & ký</span>
                     ) : (
-                      <button
-                        className="edit-btn"
-                        onClick={() => handleEditStart(grade)}
-                        disabled={selectedClassData?.daChot}
-                      >
-                        Sửa
-                      </button>
+                      <span style={{ color: '#e65100' }}>📝 Chưa chốt</span>
                     )}
                   </td>
+                  {isGiangVien && (
+                    <td>
+                      {editingId === grade.id ? (
+                        <div className="table-actions">
+                          <button className="edit-btn" onClick={() => handleSaveDiem(grade.id)}>Lưu</button>
+                          <button className="delete-btn" onClick={() => setEditingId(null)}>Hủy</button>
+                        </div>
+                      ) : (
+                        <button
+                          className="edit-btn"
+                          onClick={() => handleEditStart(grade)}
+                          disabled={selectedClassData?.daChot || !isUnlocked}
+                        >
+                          Sửa
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -235,6 +310,16 @@ export default function GradeManagement() {
           </div>
         )}
       </div>
+
+      {/* MODAL OTP DÀNH CHO GIẢNG VIÊN */}
+      {isGiangVien && (
+        <OtpModal
+          isOpen={isOtpModalOpen}
+          onClose={() => setIsOtpModalOpen(false)}
+          userEmail={user?.email}
+          onSuccess={(msg) => setAlert({ type: 'success', message: msg })}
+        />
+      )}
     </div>
   );
 }

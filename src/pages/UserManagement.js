@@ -41,7 +41,9 @@ export default function UserManagement() {
     e.preventDefault();
     try {
       if (editingId) {
-        await userAPI.capNhat(editingId, formData);
+        // Chỉ gửi các thông tin được phép sửa
+        const { email, matKhau, ...updateData } = formData;
+        await userAPI.capNhat(editingId, updateData);
         setAlert({ type: 'success', message: 'Cập nhật người dùng thành công' });
       } else {
         await userAPI.taoNguoiDung(formData);
@@ -61,7 +63,7 @@ export default function UserManagement() {
       hoTen: user.hoTen,
       email: user.email,
       vaiTro: user.vaiTro,
-      maSo: user.maSo,
+      maSo: user.maSo || '',
       matKhau: '',
     });
     setEditingId(user.id);
@@ -97,21 +99,38 @@ export default function UserManagement() {
 
         {showForm && (
           <form onSubmit={handleSubmit} style={{ marginTop: '20px', padding: '20px', background: '#f9f9f9', borderRadius: '4px' }}>
+            <h3 style={{ marginTop: 0 }}>{editingId ? '✏️ Cập nhật thông tin' : '➕ Thêm người dùng mới'}</h3>
+            
             <div className="form-row">
               <div className="form-group">
                 <label>Họ tên:</label>
                 <input type="text" name="hoTen" value={formData.hoTen} onChange={handleChange} required />
               </div>
+
+              {/* Ô Email: Khóa khi đang ở chế độ Sửa */}
               <div className="form-group">
-                <label>Email:</label>
-                <input type="email" name="email" value={formData.email} onChange={handleChange} required />
+                <label>Email: {editingId && <span style={{ color: '#888', fontSize: '12px' }}>(🔒 Không thể đổi)</span>}</label>
+                <input 
+                  type="email" 
+                  name="email" 
+                  value={formData.email} 
+                  onChange={handleChange} 
+                  required 
+                  disabled={!!editingId}
+                  style={editingId ? { backgroundColor: '#e9ecef', cursor: 'not-allowed' } : {}}
+                />
               </div>
             </div>
+
             <div className="form-row">
-              <div className="form-group">
-                <label>Mật khẩu:</label>
-                <input type="password" name="matKhau" value={formData.matKhau} onChange={handleChange} />
-              </div>
+              {/* Ô Mật khẩu: Chỉ hiển thị khi TẠO MỚI */}
+              {!editingId && (
+                <div className="form-group">
+                  <label>Mật khẩu:</label>
+                  <input type="password" name="matKhau" value={formData.matKhau} onChange={handleChange} required />
+                </div>
+              )}
+
               <div className="form-group">
                 <label>Vai trò:</label>
                 <select name="vaiTro" value={formData.vaiTro} onChange={handleChange}>
@@ -120,12 +139,14 @@ export default function UserManagement() {
                   <option value="ADMIN">Admin</option>
                 </select>
               </div>
+
+              <div className="form-group">
+                <label>Mã số (sinh viên/giảng viên):</label>
+                <input type="text" name="maSo" value={formData.maSo} onChange={handleChange} />
+              </div>
             </div>
-            <div className="form-group">
-              <label>Mã số (sinh viên/giảng viên):</label>
-              <input type="text" name="maSo" value={formData.maSo} onChange={handleChange} />
-            </div>
-            <div className="btn-group">
+
+            <div className="btn-group" style={{ marginTop: '15px' }}>
               <button type="submit" className="btn btn-success">💾 Lưu</button>
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Hủy</button>
             </div>
